@@ -1,0 +1,9 @@
+gifdec
+Upstream: https://github.com/lecram/gifdec
+
+The upstream gifdec project states in its README:
+
+"All of the source code and documentation for gifdec is released into the
+public domain and provided without warranty of any kind."
+
+This local copy is based on that upstream project.

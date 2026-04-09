@@ -1,0 +1,14 @@
+build/
+build-vs/
+.vs/
+out/
+cmake-build-*/
+CMakeUserPresets.json
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.opensdf
+*.sdf
+*.suo
+*.ipch
