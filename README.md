@@ -1,5 +1,8 @@
 # GifDance
 
+English | [日本語](README.ja.md)
+
+<img width="1920" height="1080" alt="Image" src="https://github.com/user-attachments/assets/60dc36b8-3e1a-45a7-a5df-6db97547d022" />
 `GifDance` is a Windows VST3 effect plugin that loads a local GIF and snaps its playback to the host transport.
 
 ## Current behavior
