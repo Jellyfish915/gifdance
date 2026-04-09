@@ -54,6 +54,8 @@ The built plugin is written to:
 This repository is intended to be published under `AGPL-3.0-or-later`. See
 `LICENSE`.
 
+Plugin/vendor metadata identifies the project author/manufacturer as `KRG`.
+
 Third-party code is vendored under `vendor/`:
 
 - `vendor/JUCE` is dual-licensed by its authors under `AGPLv3` or the commercial JUCE license.

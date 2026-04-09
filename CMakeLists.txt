@@ -9,7 +9,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 add_subdirectory(vendor/JUCE)
 
 juce_add_plugin(GifDance
-    COMPANY_NAME "Codex"
+    COMPANY_NAME "KRG"
     IS_SYNTH FALSE
     NEEDS_MIDI_INPUT FALSE
     NEEDS_MIDI_OUTPUT FALSE
