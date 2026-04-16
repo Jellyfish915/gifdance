@@ -20,6 +20,8 @@ GifDanceAudioProcessor::GifDanceAudioProcessor()
     valueTreeState.state.setProperty (gifPathPropertyId, {}, nullptr);
     valueTreeState.state.setProperty (startFramePropertyId, 0, nullptr);
     valueTreeState.state.setProperty (endFramePropertyId, -1, nullptr);
+    valueTreeState.state.setProperty (offsetFramePropertyId, 0, nullptr);
+    valueTreeState.state.setProperty (pingPongPropertyId, false, nullptr);
     valueTreeState.state.setProperty (editorWidthPropertyId, defaultEditorWidth, nullptr);
     valueTreeState.state.setProperty (editorHeightPropertyId, defaultEditorHeight, nullptr);
 }
@@ -159,13 +161,15 @@ GifDanceAudioProcessor::PreviewState GifDanceAudioProcessor::getPreviewState() c
     const auto frameRange = getClampedFrameRangeLocked();
     preview.startFrame = frameRange.first;
     preview.endFrame = frameRange.second;
+    preview.offsetFrame = getClampedOffsetFrameLocked();
+    preview.pingPongEnabled = getPingPongEnabledLocked();
 
     if (! preview.hasGif)
         return preview;
 
     if (! preview.isPlaying || ! preview.transportAvailable || preview.loopBeats <= 0.0 || animation.totalDurationSeconds <= 0.0)
     {
-        preview.frame = animation.frames[preview.startFrame].image;
+        preview.frame = animation.frames[preview.offsetFrame].image;
         return preview;
     }
 
@@ -180,14 +184,39 @@ GifDanceAudioProcessor::PreviewState GifDanceAudioProcessor::getPreviewState() c
 
     if (activeDurationSeconds <= 0.0)
     {
-        preview.frame = animation.frames[preview.startFrame].image;
+        preview.frame = animation.frames[preview.offsetFrame].image;
         return preview;
     }
 
     const auto normalizedPhase = juce::jlimit (0.0,
                                                std::nextafter (1.0, 0.0),
                                                wrappedPpq / preview.loopBeats);
-    const auto targetTimeSeconds = startTimeSeconds + normalizedPhase * activeDurationSeconds;
+    const auto offsetTimeSeconds = preview.offsetFrame > 0 ? animation.frames[preview.offsetFrame - 1].endTimeSeconds : 0.0;
+    const auto offsetIntoActiveSeconds = juce::jlimit (0.0, activeDurationSeconds, offsetTimeSeconds - startTimeSeconds);
+    auto shiftedTimeSeconds = 0.0;
+
+    if (preview.pingPongEnabled)
+    {
+        const auto pingPongDurationSeconds = activeDurationSeconds * 2.0;
+        shiftedTimeSeconds = std::fmod (offsetIntoActiveSeconds + normalizedPhase * pingPongDurationSeconds,
+                                        pingPongDurationSeconds);
+
+        if (shiftedTimeSeconds < 0.0)
+            shiftedTimeSeconds += pingPongDurationSeconds;
+
+        if (shiftedTimeSeconds > activeDurationSeconds)
+            shiftedTimeSeconds = pingPongDurationSeconds - shiftedTimeSeconds;
+    }
+    else
+    {
+        shiftedTimeSeconds = std::fmod (offsetIntoActiveSeconds + normalizedPhase * activeDurationSeconds,
+                                        activeDurationSeconds);
+
+        if (shiftedTimeSeconds < 0.0)
+            shiftedTimeSeconds += activeDurationSeconds;
+    }
+
+    const auto targetTimeSeconds = startTimeSeconds + shiftedTimeSeconds;
 
     const auto rangeStart = animation.frames.begin() + preview.startFrame;
     const auto rangeEnd = animation.frames.begin() + preview.endFrame + 1;
@@ -234,12 +263,38 @@ void GifDanceAudioProcessor::setFrameRange (int startFrame, int endFrame)
     const juce::ScopedLock lock (stateLock);
     const auto clampedRange = clampFrameRange (startFrame, endFrame, static_cast<int> (animation.frames.size()));
     storeFrameRangeLocked (clampedRange.first, clampedRange.second);
+    storeOffsetFrameLocked (clampOffsetFrame (getStoredOffsetFrameLocked(), clampedRange.first, clampedRange.second));
 }
 
 std::pair<int, int> GifDanceAudioProcessor::getFrameRange() const
 {
     const juce::ScopedLock lock (stateLock);
     return getClampedFrameRangeLocked();
+}
+
+void GifDanceAudioProcessor::setOffsetFrame (int offsetFrame)
+{
+    const juce::ScopedLock lock (stateLock);
+    const auto frameRange = getClampedFrameRangeLocked();
+    storeOffsetFrameLocked (clampOffsetFrame (offsetFrame, frameRange.first, frameRange.second));
+}
+
+int GifDanceAudioProcessor::getOffsetFrame() const
+{
+    const juce::ScopedLock lock (stateLock);
+    return getClampedOffsetFrameLocked();
+}
+
+void GifDanceAudioProcessor::setPingPongEnabled (bool shouldBeEnabled)
+{
+    const juce::ScopedLock lock (stateLock);
+    storePingPongEnabledLocked (shouldBeEnabled);
+}
+
+bool GifDanceAudioProcessor::isPingPongEnabled() const
+{
+    const juce::ScopedLock lock (stateLock);
+    return getPingPongEnabledLocked();
 }
 
 void GifDanceAudioProcessor::setEditorSize (int width, int height)
@@ -313,6 +368,7 @@ juce::Result GifDanceAudioProcessor::loadGifFromFileInternal (const juce::File& 
         currentGifFile = file;
         const auto clampedRange = getClampedFrameRangeLocked();
         storeFrameRangeLocked (clampedRange.first, clampedRange.second);
+        storeOffsetFrameLocked (clampOffsetFrame (getStoredOffsetFrameLocked(), clampedRange.first, clampedRange.second));
         statusText = "Loaded " + file.getFileName() + " (" + juce::String (static_cast<int> (animation.frames.size()))
                      + " frames, " + juce::String (animation.width) + "x" + juce::String (animation.height) + ").";
         valueTreeState.state.setProperty (gifPathPropertyId, currentGifFile.getFullPathName(), nullptr);
@@ -378,6 +434,14 @@ std::pair<int, int> GifDanceAudioProcessor::clampFrameRange (int startFrame, int
     return { startFrame, endFrame };
 }
 
+int GifDanceAudioProcessor::clampOffsetFrame (int offsetFrame, int startFrame, int endFrame)
+{
+    if (endFrame < startFrame)
+        return startFrame;
+
+    return juce::jlimit (startFrame, endFrame, offsetFrame);
+}
+
 std::pair<int, int> GifDanceAudioProcessor::getStoredFrameRangeLocked() const
 {
     const auto startFrame = static_cast<int> (valueTreeState.state.getProperty (startFramePropertyId, 0));
@@ -395,6 +459,32 @@ void GifDanceAudioProcessor::storeFrameRangeLocked (int startFrame, int endFrame
 {
     valueTreeState.state.setProperty (startFramePropertyId, startFrame, nullptr);
     valueTreeState.state.setProperty (endFramePropertyId, endFrame, nullptr);
+}
+
+int GifDanceAudioProcessor::getStoredOffsetFrameLocked() const
+{
+    return static_cast<int> (valueTreeState.state.getProperty (offsetFramePropertyId, 0));
+}
+
+int GifDanceAudioProcessor::getClampedOffsetFrameLocked() const
+{
+    const auto frameRange = getClampedFrameRangeLocked();
+    return clampOffsetFrame (getStoredOffsetFrameLocked(), frameRange.first, frameRange.second);
+}
+
+void GifDanceAudioProcessor::storeOffsetFrameLocked (int offsetFrame)
+{
+    valueTreeState.state.setProperty (offsetFramePropertyId, offsetFrame, nullptr);
+}
+
+bool GifDanceAudioProcessor::getPingPongEnabledLocked() const
+{
+    return static_cast<bool> (valueTreeState.state.getProperty (pingPongPropertyId, false));
+}
+
+void GifDanceAudioProcessor::storePingPongEnabledLocked (bool shouldBeEnabled)
+{
+    valueTreeState.state.setProperty (pingPongPropertyId, shouldBeEnabled, nullptr);
 }
 
 int GifDanceAudioProcessor::getLoopBeatIndex() const

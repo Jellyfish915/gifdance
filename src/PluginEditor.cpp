@@ -126,12 +126,15 @@ GifDanceAudioProcessorEditor::GifDanceAudioProcessorEditor (GifDanceAudioProcess
 
     settingsPanel.addAndMakeVisible (openButton);
     settingsPanel.addAndMakeVisible (reloadButton);
+    settingsPanel.addAndMakeVisible (pingPongToggle);
     settingsPanel.addAndMakeVisible (loopBeatsBox);
     settingsPanel.addAndMakeVisible (loopBeatsLabel);
     settingsPanel.addAndMakeVisible (startFrameSlider);
     settingsPanel.addAndMakeVisible (endFrameSlider);
+    settingsPanel.addAndMakeVisible (offsetFrameSlider);
     settingsPanel.addAndMakeVisible (startFrameLabel);
     settingsPanel.addAndMakeVisible (endFrameLabel);
+    settingsPanel.addAndMakeVisible (offsetFrameLabel);
     settingsPanel.addAndMakeVisible (fileLabel);
     settingsPanel.addAndMakeVisible (bpmLabel);
     settingsPanel.addAndMakeVisible (transportLabel);
@@ -140,6 +143,7 @@ GifDanceAudioProcessorEditor::GifDanceAudioProcessorEditor (GifDanceAudioProcess
     loopBeatsLabel.attachToComponent (&loopBeatsBox, true);
     startFrameLabel.attachToComponent (&startFrameSlider, true);
     endFrameLabel.attachToComponent (&endFrameSlider, true);
+    offsetFrameLabel.attachToComponent (&offsetFrameSlider, true);
     loopBeatsAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (processor.getValueTreeState(),
                                                                                                      GifDanceAudioProcessor::loopBeatsParameterId,
                                                                                                      loopBeatsBox);
@@ -151,6 +155,11 @@ GifDanceAudioProcessorEditor::GifDanceAudioProcessorEditor (GifDanceAudioProcess
         refreshFromProcessor();
     };
     settingsButton.onClick = [this] { setSettingsVisible (! settingsVisible); };
+    pingPongToggle.onClick = [this]
+    {
+        processorRef.setPingPongEnabled (pingPongToggle.getToggleState());
+        refreshFromProcessor();
+    };
     startFrameSlider.onValueChange = [this]
     {
         if (updatingFrameControls)
@@ -171,6 +180,14 @@ GifDanceAudioProcessorEditor::GifDanceAudioProcessorEditor (GifDanceAudioProcess
         processorRef.setFrameRange (startFrame, endFrame);
         refreshFromProcessor();
     };
+    offsetFrameSlider.onValueChange = [this]
+    {
+        if (updatingFrameControls)
+            return;
+
+        processorRef.setOffsetFrame (juce::roundToInt (offsetFrameSlider.getValue()) - 1);
+        refreshFromProcessor();
+    };
 
     fileLabel.setJustificationType (juce::Justification::centredLeft);
     fileLabel.setColour (juce::Label::textColourId, juce::Colours::white.withAlpha (0.82f));
@@ -182,8 +199,12 @@ GifDanceAudioProcessorEditor::GifDanceAudioProcessorEditor (GifDanceAudioProcess
     statusLabel.setMinimumHorizontalScale (1.0f);
     statusLabel.setColour (juce::Label::textColourId, juce::Colours::white.withAlpha (0.68f));
     loopBeatsLabel.setColour (juce::Label::textColourId, juce::Colours::white.withAlpha (0.82f));
+    pingPongToggle.setColour (juce::ToggleButton::textColourId, juce::Colours::white.withAlpha (0.88f));
+    pingPongToggle.setColour (juce::ToggleButton::tickColourId, juce::Colour (0xffffd247));
+    pingPongToggle.setColour (juce::ToggleButton::tickDisabledColourId, juce::Colours::white.withAlpha (0.12f));
     startFrameLabel.setColour (juce::Label::textColourId, juce::Colours::white.withAlpha (0.82f));
     endFrameLabel.setColour (juce::Label::textColourId, juce::Colours::white.withAlpha (0.82f));
+    offsetFrameLabel.setColour (juce::Label::textColourId, juce::Colours::white.withAlpha (0.82f));
     loopBeatsBox.setColour (juce::ComboBox::backgroundColourId, juce::Colour (0xff182127));
     loopBeatsBox.setColour (juce::ComboBox::textColourId, juce::Colours::white);
     loopBeatsBox.setColour (juce::ComboBox::outlineColourId, juce::Colours::white.withAlpha (0.12f));
@@ -203,6 +224,14 @@ GifDanceAudioProcessorEditor::GifDanceAudioProcessorEditor (GifDanceAudioProcess
     endFrameSlider.setColour (juce::Slider::textBoxTextColourId, juce::Colours::white);
     endFrameSlider.setColour (juce::Slider::textBoxBackgroundColourId, juce::Colour (0xff182127));
     endFrameSlider.setColour (juce::Slider::textBoxOutlineColourId, juce::Colours::white.withAlpha (0.12f));
+    offsetFrameSlider.setSliderStyle (juce::Slider::LinearHorizontal);
+    offsetFrameSlider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 64, 24);
+    offsetFrameSlider.setRange (1.0, 1.0, 1.0);
+    offsetFrameSlider.setColour (juce::Slider::trackColourId, juce::Colour (0xfff3bd18));
+    offsetFrameSlider.setColour (juce::Slider::thumbColourId, juce::Colour (0xffffd247));
+    offsetFrameSlider.setColour (juce::Slider::textBoxTextColourId, juce::Colours::white);
+    offsetFrameSlider.setColour (juce::Slider::textBoxBackgroundColourId, juce::Colour (0xff182127));
+    offsetFrameSlider.setColour (juce::Slider::textBoxOutlineColourId, juce::Colours::white.withAlpha (0.12f));
 
     settingsPanel.setVisible (false);
     settingsButton.setAlpha (0.0f);
@@ -235,7 +264,7 @@ void GifDanceAudioProcessorEditor::resized()
     settingsButton.setBounds (getWidth() - margin - 42, margin, 42, 42);
 
     const auto panelWidth = juce::jmin (340, getWidth() - 36);
-    const auto panelHeight = juce::jmin (324, getHeight() - 84);
+    const auto panelHeight = juce::jmin (392, getHeight() - 84);
     settingsPanel.setBounds (getWidth() - margin - panelWidth, margin + 54, panelWidth, panelHeight);
 
     auto panelBounds = settingsPanel.getLocalBounds().reduced (18);
@@ -248,10 +277,14 @@ void GifDanceAudioProcessorEditor::resized()
     auto loopRow = panelBounds.removeFromTop (28);
     loopBeatsBox.setBounds (loopRow.removeFromLeft (120));
 
+    panelBounds.removeFromTop (10);
+    pingPongToggle.setBounds (panelBounds.removeFromTop (24));
     panelBounds.removeFromTop (12);
     startFrameSlider.setBounds (panelBounds.removeFromTop (28));
     panelBounds.removeFromTop (8);
     endFrameSlider.setBounds (panelBounds.removeFromTop (28));
+    panelBounds.removeFromTop (8);
+    offsetFrameSlider.setBounds (panelBounds.removeFromTop (28));
 
     panelBounds.removeFromTop (14);
     fileLabel.setBounds (panelBounds.removeFromTop (38));
@@ -285,11 +318,12 @@ void GifDanceAudioProcessorEditor::refreshFromProcessor()
 {
     const auto previewState = processorRef.getPreviewState();
     preview.setPreviewState (previewState);
-    updateFrameRangeControls (previewState);
+    updateFrameControls (previewState);
 
     const auto resolvedPath = previewState.fullPath.isNotEmpty() ? previewState.fullPath : "No GIF selected";
     fileLabel.setText ("GIF: " + resolvedPath, juce::dontSendNotification);
     fileLabel.setTooltip (previewState.fullPath);
+    pingPongToggle.setToggleState (previewState.pingPongEnabled, juce::dontSendNotification);
 
     bpmLabel.setText (previewState.transportAvailable ? "BPM: " + juce::String (previewState.bpm, 2) : "BPM: --",
                       juce::dontSendNotification);
@@ -300,7 +334,9 @@ void GifDanceAudioProcessorEditor::refreshFromProcessor()
                             juce::dontSendNotification);
 
     statusLabel.setText ("Loop: " + previewState.loopBeatsLabel + " beats\n"
+                         "Mode: " + juce::String (previewState.pingPongEnabled ? "Ping Pong" : "Loop") + "\n"
                          "Range: " + juce::String (previewState.startFrame + 1) + " - " + juce::String (previewState.endFrame + 1) + "\n"
+                         "Offset: " + juce::String (previewState.offsetFrame + 1) + "\n"
                          "Frames: " + juce::String (previewState.frameCount) + "\n"
                          "Status: " + previewState.statusText,
                          juce::dontSendNotification);
@@ -333,21 +369,25 @@ void GifDanceAudioProcessorEditor::setSettingsVisible (bool shouldBeVisible)
     updateSettingsButtonState();
 }
 
-void GifDanceAudioProcessorEditor::updateFrameRangeControls (const GifDanceAudioProcessor::PreviewState& previewState)
+void GifDanceAudioProcessorEditor::updateFrameControls (const GifDanceAudioProcessor::PreviewState& previewState)
 {
     const auto maximumFrame = juce::jmax (1, previewState.frameCount);
     const auto startFrameValue = juce::jlimit (1, maximumFrame, previewState.startFrame + 1);
     const auto endFrameValue = juce::jlimit (startFrameValue, maximumFrame, previewState.endFrame + 1);
+    const auto offsetFrameValue = juce::jlimit (startFrameValue, endFrameValue, previewState.offsetFrame + 1);
 
     updatingFrameControls = true;
     startFrameSlider.setRange (1.0, static_cast<double> (maximumFrame), 1.0);
     endFrameSlider.setRange (1.0, static_cast<double> (maximumFrame), 1.0);
+    offsetFrameSlider.setRange (static_cast<double> (startFrameValue), static_cast<double> (endFrameValue), 1.0);
     startFrameSlider.setValue (startFrameValue, juce::dontSendNotification);
     endFrameSlider.setValue (endFrameValue, juce::dontSendNotification);
+    offsetFrameSlider.setValue (offsetFrameValue, juce::dontSendNotification);
     updatingFrameControls = false;
 
     startFrameSlider.setEnabled (previewState.hasGif);
     endFrameSlider.setEnabled (previewState.hasGif);
+    offsetFrameSlider.setEnabled (previewState.hasGif);
 }
 
 void GifDanceAudioProcessorEditor::updateSettingsButtonState()

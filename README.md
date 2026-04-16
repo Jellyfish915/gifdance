@@ -13,11 +13,13 @@ English | [日本語](README.ja.md)
 - GIF playback follows the host `PPQ` position while the transport is running.
 - `Loop Beats` is automatable and supports fast sub-beat loops down to `1/8`.
 - Playback can be limited to a selected `Start frame` and `End frame`.
-- When the host stops, the preview returns to the selected start frame.
+- `Offset frame` shifts where playback begins inside the selected frame range.
+- `Ping Pong` mode plays forward to the end of the selected range, then reverses instead of wrapping.
+- When the host stops, the preview returns to the selected offset frame.
 - GIFs are rendered with aspect ratio preserved while resizing the plugin window.
 - The plugin window size is saved in plugin state and restored when the project is reopened.
 - GIF decoding uses composed frames with transparency support.
-- The plugin state stores the GIF absolute path, selected loop length, frame range, and editor size.
+- The plugin state stores the GIF absolute path, selected loop length, frame range, playback mode, and editor size.
 
 ## Usage
 
@@ -26,7 +28,9 @@ English | [日本語](README.ja.md)
 3. Click `Open GIF` and choose a local `.gif` file.
 4. Set `Loop Beats` to the musical length you want.
 5. Adjust `Start frame` and `End frame` if you want to loop only part of the GIF.
-6. Resize the plugin window as needed. The GIF will scale to fit without changing aspect ratio.
+6. Set `Offset frame` if you want the loop to begin from a different frame inside that selected range.
+7. Enable `Ping Pong` if you want playback to reverse at the end of the selected range.
+8. Resize the plugin window as needed. The GIF will scale to fit without changing aspect ratio.
 
 ## State and sync details
 

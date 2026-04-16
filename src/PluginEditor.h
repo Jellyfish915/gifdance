@@ -42,7 +42,7 @@ private:
     void chooseGifFile();
     void setSettingsVisible (bool shouldBeVisible);
     void updateSettingsButtonState();
-    void updateFrameRangeControls (const GifDanceAudioProcessor::PreviewState& previewState);
+    void updateFrameControls (const GifDanceAudioProcessor::PreviewState& previewState);
     bool isMouseOverEditor() const;
 
     GifDanceAudioProcessor& processorRef;
@@ -52,12 +52,15 @@ private:
     SettingsButton settingsButton;
     juce::TextButton openButton { "Open GIF" };
     juce::TextButton reloadButton { "Reload" };
+    juce::ToggleButton pingPongToggle { "Ping Pong" };
     juce::ComboBox loopBeatsBox;
     juce::Label loopBeatsLabel { {}, "Loop beats" };
     juce::Slider startFrameSlider;
     juce::Slider endFrameSlider;
+    juce::Slider offsetFrameSlider;
     juce::Label startFrameLabel { {}, "Start frame" };
     juce::Label endFrameLabel { {}, "End frame" };
+    juce::Label offsetFrameLabel { {}, "Offset frame" };
     juce::Label fileLabel;
     juce::Label bpmLabel;
     juce::Label transportLabel;

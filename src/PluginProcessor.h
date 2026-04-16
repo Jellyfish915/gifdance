@@ -14,6 +14,8 @@ public:
     static constexpr const char* gifPathPropertyId = "gifPath";
     static constexpr const char* startFramePropertyId = "startFrame";
     static constexpr const char* endFramePropertyId = "endFrame";
+    static constexpr const char* offsetFramePropertyId = "offsetFrame";
+    static constexpr const char* pingPongPropertyId = "pingPong";
     static constexpr const char* editorWidthPropertyId = "editorWidth";
     static constexpr const char* editorHeightPropertyId = "editorHeight";
     static constexpr std::array<double, 8> loopBeatValues { 0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0 };
@@ -33,6 +35,8 @@ public:
         int frameCount = 0;
         int startFrame = 0;
         int endFrame = 0;
+        int offsetFrame = 0;
+        bool pingPongEnabled = false;
         bool isPlaying = false;
         bool transportAvailable = false;
         bool hasGif = false;
@@ -72,6 +76,10 @@ public:
     juce::AudioProcessorValueTreeState& getValueTreeState() noexcept;
     void setFrameRange (int startFrame, int endFrame);
     std::pair<int, int> getFrameRange() const;
+    void setOffsetFrame (int offsetFrame);
+    int getOffsetFrame() const;
+    void setPingPongEnabled (bool shouldBeEnabled);
+    bool isPingPongEnabled() const;
     void setEditorSize (int width, int height);
     juce::Point<int> getEditorSize() const;
 
@@ -84,9 +92,15 @@ private:
     void clearGif (const juce::String& newStatusText, const juce::File& replacementPath);
     void restoreGifFromState();
     static std::pair<int, int> clampFrameRange (int startFrame, int endFrame, int frameCount);
+    static int clampOffsetFrame (int offsetFrame, int startFrame, int endFrame);
     std::pair<int, int> getStoredFrameRangeLocked() const;
     std::pair<int, int> getClampedFrameRangeLocked() const;
     void storeFrameRangeLocked (int startFrame, int endFrame);
+    int getStoredOffsetFrameLocked() const;
+    int getClampedOffsetFrameLocked() const;
+    void storeOffsetFrameLocked (int offsetFrame);
+    bool getPingPongEnabledLocked() const;
+    void storePingPongEnabledLocked (bool shouldBeEnabled);
     int getLoopBeatIndex() const;
     double getLoopBeats() const;
     juce::String getLoopBeatsLabel() const;
